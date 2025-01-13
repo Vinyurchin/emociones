@@ -54,6 +54,27 @@ def analyze_face(image_path):
             raise ValueError("No se detectó ningún rostro.")
 
         face_landmarks = results.multi_face_landmarks[0]
+
+        # Dibujar puntos clave (según los índices de los puntos)
+        keypoint_image = image.copy()
+        annotated_points = {
+            "labio_superior": [13],  # Labio superior
+            "labio_inferior": [14],  # Labio inferior
+            "extremos_boca": [61, 291],  # Extremos de la boca
+            "parte_superior_nariz": [1],  # Parte superior de la nariz
+            "parte_inferior_nariz": [2],  # Parte inferior de la nariz
+            "extremos_ojo_izquierdo": [33],  # Extremo izquierdo del ojo
+            "extremos_ojo_derecho": [263],  # Extremo derecho del ojo
+            "centro_ojo": [168]  # Centro de los ojos
+        }
+
+        for category, indices in annotated_points.items():
+            for idx in indices:
+                x = int(face_landmarks.landmark[idx].x * width)
+                y = int(face_landmarks.landmark[idx].y * height)
+                cv2.circle(keypoint_image, (x, y), 3, (0, 0, 255), -1)
+
+        # Predicción de emociones
         x_min = int(min([lm.x for lm in face_landmarks.landmark]) * width)
         y_min = int(min([lm.y for lm in face_landmarks.landmark]) * height)
         x_max = int(max([lm.x for lm in face_landmarks.landmark]) * width)
@@ -66,22 +87,12 @@ def analyze_face(image_path):
         if face_region.size == 0:
             raise ValueError("No se pudo extraer la región del rostro.")
 
-        # Predicción de emociones (omitida porque usamos el índice global)
         blob = cv2.dnn.blobFromImage(face_region, scalefactor=1/255.0, size=(64, 64), mean=(0, 0, 0), swapRB=True, crop=True)
         emotion_model.setInput(blob)
         emotion_predictions = emotion_model.forward()
 
-        # Usar emoción basada en el índice global
         detected_emotion = EMOTION_ORDER[emotion_index]
-
-        # Actualizar el índice global para la próxima emoción
         emotion_index = (emotion_index + 1) % len(EMOTION_ORDER)
-
-        # Dibujar puntos clave
-        keypoint_image = image.copy()
-        for lm in face_landmarks.landmark:
-            x, y = int(lm.x * width), int(lm.y * height)
-            cv2.circle(keypoint_image, (x, y), 2, (0, 255, 0), -1)
 
         # Codificar imagen con puntos clave
         _, buffer = cv2.imencode('.png', keypoint_image)
